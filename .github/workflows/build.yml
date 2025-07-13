@@ -1,0 +1,47 @@
+name: Android Build & Release
+
+on:
+  push:
+    branches:
+      - main  # veya "master"
+
+jobs:
+  build:
+    name: Build Android App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Grant execute permission to Gradle
+        run: chmod +x ./gradlew
+
+      - name: Build APK
+        run: ./gradlew assembleRelease
+
+      - name: Get current timestamp
+        id: timestamp
+        run: echo "timestamp=$(date +'%Y-%m-%d_%H-%M-%S')" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK
+        run: |
+          APK_PATH=$(find . -name "*release*.apk" | head -n 1)
+          NEW_NAME="app_${{ steps.timestamp.outputs.timestamp }}.apk"
+          cp "$APK_PATH" "$NEW_NAME"
+          echo "apk_name=$NEW_NAME" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ steps.timestamp.outputs.timestamp }}
+          name: "Build ${{ steps.timestamp.outputs.timestamp }}"
+          files: ${{ env.apk_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
